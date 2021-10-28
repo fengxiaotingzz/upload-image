@@ -13,5 +13,5 @@ if (!hasInstall) {
     "本插件依赖于:react、@babel/core、@babel/plugin-syntax-dynamic-import，请安装之后再使用"
   );
 } else {
-  module.exports = require("./upload/index.js");
+  module.exports = require("./lib/upload/index.js");
 }
