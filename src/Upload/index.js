@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 
 import "./index.css";
 
@@ -9,7 +9,12 @@ function Upload({
   disabled = false,
   onCheck = () => true,
   onChange = () => {},
+  headers = {},
+  accept = "",
+  maxCount,
+  fileList = [],
 }) {
+  const [fileData, setFileData] = useState(fileList);
   const inputRef = useRef();
 
   const onClickInput = () => {
@@ -18,11 +23,17 @@ function Upload({
   };
 
   const onChangeFile = (e) => {
-    const list = e?.target?.files;
+    const list = e.target.files;
     const files = Array.from(list);
     if (!onCheck(files)) return false;
 
-    files.map((o) => {
+    let fileArr = files;
+    const len = files.length;
+    if (len >= maxCount) {
+      fileArr = files.slice(len - maxCount, len);
+    }
+
+    fileArr.map((o) => {
       o.status = "uploading";
 
       const controller = new AbortController();
@@ -30,18 +41,24 @@ function Upload({
 
       o.cancel = () => controller.abort();
 
-      onChange([...files]);
+      onChange(o, [...fileData, ...fileArr]);
+      const formData = new FormData();
+      formData.append("file", o);
 
-      fetch(url, { body: files, method: "POST", signal })
+      setFileData([...fileData, ...fileArr] || []);
+
+      fetch(url, {
+        body: formData,
+        method: "POST",
+        signal,
+        headers,
+      })
         .then((res) => {
-          if (res.status === 200) return res.json();
-
-          throw "error";
+          return res.json();
         })
         .then((res) => {
           o.res = res;
-          o.status = "success";
-          onChange([...files]);
+          onChange(o, [...fileData, ...fileArr]);
         })
         .catch((e) => {
           if (e.message === "The user aborted a request.") {
@@ -49,18 +66,25 @@ function Upload({
           } else {
             o.status = "error";
           }
-          onChange([...files]);
+          onChange(o, [...fileData, ...fileArr]);
+        })
+        .then(() => {
+          setFileData([...fileData, ...fileArr] || []);
         });
     });
   };
 
+  const showDisabled = disabled || fileData.length >= maxCount;
+
   return (
     <div
       className={`upload-images-box ${
-        disabled && "disabled-upload-images-box"
+        showDisabled && "disabled-upload-images-box"
       }`}
     >
-      <div onClick={() => onClickInput()}>{children || "上传"}</div>
+      <div onClick={() => !showDisabled && onClickInput()}>
+        {children || "上传"}
+      </div>
       <input
         type="file"
         multiple={multiple}
@@ -68,6 +92,7 @@ function Upload({
         onChange={onChangeFile}
         value=""
         className="input"
+        accept={accept}
       />
     </div>
   );
